@@ -1,158 +1,295 @@
-import './App.css';
-import { useEffect, useRef } from "react";
-import { StrudelMirror } from '@strudel/codemirror';
-import { evalScope } from '@strudel/core';
-import { drawPianoroll } from '@strudel/draw';
-import { initAudioOnFirstClick } from '@strudel/webaudio';
-import { transpiler } from '@strudel/transpiler';
-import { getAudioContext, webaudioOutput, registerSynthSounds } from '@strudel/webaudio';
-import { registerSoundfonts } from '@strudel/soundfonts';
-import { stranger_tune } from './tunes';
-import console_monkey_patch, { getD3Data } from './console-monkey-patch';
-
-let globalEditor = null;
-
-const handleD3Data = (event) => {
-    console.log(event.detail);
-};
-
-export function SetupButtons() {
-
-    document.getElementById('play').addEventListener('click', () => globalEditor.evaluate());
-    document.getElementById('stop').addEventListener('click', () => globalEditor.stop());
-    document.getElementById('process').addEventListener('click', () => {
-        Proc()
-    }
-    )
-    document.getElementById('process_play').addEventListener('click', () => {
-        if (globalEditor != null) {
-            Proc()
-            globalEditor.evaluate()
-        }
-    }
-    )
-}
-
-
-
-export function ProcAndPlay() {
-    if (globalEditor != null && globalEditor.repl.state.started == true) {
-        console.log(globalEditor)
-        Proc()
-        globalEditor.evaluate();
-    }
-}
-
-export function Proc() {
-
-    let proc_text = document.getElementById('proc').value
-    let proc_text_replaced = proc_text.replaceAll('<p1_Radio>', ProcessText);
-    ProcessText(proc_text);
-    globalEditor.setCode(proc_text_replaced)
-}
-
-export function ProcessText(match, ...args) {
-
-    let replace = ""
-    if (document.getElementById('flexRadioDefault2').checked) {
-        replace = "_"
-    }
-
-    return replace
-}
+import "./App.css";
+import { useEffect, useState } from "react";
+import Processor from "./components/Processor";
+import Strudel from "./components/Strudel";
+import SaveAndLoadButtons from "./components/SaveAndLoadButtons";
+import Reverb from "./components/Reverb";
+import Navigation from "./components/Navigation";
+import Graph from "./components/Graph";
 
 export default function StrudelDemo() {
+    // creates a global variable for each filter of volume control
+    const [globalEditor, setGlobalEditor] = useState(null);
+    const [Tracks, setTracks] = useState([]);
+    const [MuteState, setMuteState] = useState(false);
+    const [volumeState, setVolumeState] = useState({});
+    const [LowPassState, setLowPassState] = useState(0);
+    const [MediumPassState, setMediumPassState] = useState(0);
+    const [HighPassState, setHighPassState] = useState(0);
+    const [RoomState, setRoomState] = useState(0);
+    const [RoomLowPassState, setRoomLowPassState] = useState(0);
+    const [RoomFadeState, setRoomFadeState] = useState(0);
+    const [RoomDecayState, setRoomDecayState] = useState(0);
+    const [RoomSustainState, setRoomSustainState] = useState(0);
+    const [rngArray, setRngArray] = useState([]);
 
-const hasRun = useRef(false);
+    // Process text on lood and pulls all the tracks from the song
+    // Uses the tracks pulled creates a range for each track to set volume.
+    useEffect(() => {
+        if (globalEditor) {
+            Proc();
+            getTrack();
+            for (const track in Tracks) {
+                Volume(track, 0.5);
+            }
+        }
+    }, [globalEditor]);
 
-useEffect(() => {
+    // Pulls the tracks from the song and stores them in an array.
+    const getTrack = () => {
+        let code = globalEditor.code;
+        code = code.split("\n");
+        for (const line of code) {
+            let match = line.match(/[A-Za-z][_0-9A-Za-z]*:\s?$/);
+            if (match) {
+                setTracks((currentTracks) => [...currentTracks, match[0].replace(":", "").trim()]);
+            }
+        }
+    };
 
-    if (!hasRun.current) {
-        document.addEventListener("d3Data", handleD3Data);
-        console_monkey_patch();
-        hasRun.current = true;
-        //Code copied from example: https://codeberg.org/uzu/strudel/src/branch/main/examples/codemirror-repl
-            //init canvas
-            const canvas = document.getElementById('roll');
-            canvas.width = canvas.width * 2;
-            canvas.height = canvas.height * 2;
-            const drawContext = canvas.getContext('2d');
-            const drawTime = [-2, 2]; // time window of drawn haps
-            globalEditor = new StrudelMirror({
-                defaultOutput: webaudioOutput,
-                getTime: () => getAudioContext().currentTime,
-                transpiler,
-                root: document.getElementById('editor'),
-                drawTime,
-                onDraw: (haps, time) => drawPianoroll({ haps, time, ctx: drawContext, drawTime, fold: 0 }),
-                prebake: async () => {
-                    initAudioOnFirstClick(); // needed to make the browser happy (don't await this here..)
-                    const loadModules = evalScope(
-                        import('@strudel/core'),
-                        import('@strudel/draw'),
-                        import('@strudel/mini'),
-                        import('@strudel/tonal'),
-                        import('@strudel/webaudio'),
-                    );
-                    await Promise.all([loadModules, registerSynthSounds(), registerSoundfonts()]);
-                },
-            });
-            
-        document.getElementById('proc').value = stranger_tune
-        SetupButtons()
-        Proc()
-    }
+    const Proc = () => {
+        // Check if there is a global editor
+        // If no global editor return as the code can't be set
+        if (!globalEditor) {
+            return;
+        }
 
-}, []);
+        // gets the process information to process
+        let proc_text = document.getElementById("proc").value;
 
+        // Process mute tag
+        let proc_text_replaced = proc_text.replaceAll("<Mute>", ProcessText("Mute", ""));
 
-return (
-    <div>
-        <h2>Strudel Demo</h2>
-        <main>
+        // Process volume tag
+        proc_text_replaced = proc_text_replaced.replaceAll(
+            "<Volume_Control>",
+            ProcessText("Volume", "")
+        );
 
-            <div className="container-fluid">
-                <div className="row">
-                    <div className="col-md-8" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
-                        <label htmlFor="exampleFormControlTextarea1" className="form-label">Text to preprocess:</label>
-                        <textarea className="form-control" rows="15" id="proc" ></textarea>
-                    </div>
-                    <div className="col-md-4">
+        // Process low pass filter tag
+        proc_text_replaced = proc_text_replaced.replaceAll(
+            "<Low_Pass_Filter>",
+            ProcessText("lpf", "")
+        );
 
-                        <nav>
-                            <button id="process" className="btn btn-outline-primary">Preprocess</button>
-                            <button id="process_play" className="btn btn-outline-primary">Proc & Play</button>
-                            <br />
-                            <button id="play" className="btn btn-outline-primary">Play</button>
-                            <button id="stop" className="btn btn-outline-primary">Stop</button>
-                        </nav>
-                    </div>
+        // Process medium pass filter tag
+        proc_text_replaced = proc_text_replaced.replaceAll(
+            "<Medium_Pass_Filter>",
+            ProcessText("mpf", "")
+        );
+
+        // Process high pass filter tag
+        proc_text_replaced = proc_text_replaced.replaceAll(
+            "<High_Pass_Filter>",
+            ProcessText("hpf", "")
+        );
+
+        // Process room filter tag
+        proc_text_replaced = proc_text_replaced.replaceAll("<Room>", ProcessText("Room", ""));
+
+        // Process room low pass filter tag
+        proc_text_replaced = proc_text_replaced.replaceAll(
+            "<Room_Low_Pass>",
+            ProcessText("rlp", "")
+        );
+
+        // Process Decay tag
+        proc_text_replaced = proc_text_replaced.replaceAll("<Decay>", ProcessText("Decay", ""));
+
+        //Process room fade tag
+        proc_text_replaced = proc_text_replaced.replaceAll("<Room_Fade>", ProcessText("Fade", ""));
+
+        // Process volume tag for each track
+        if (Tracks.length === 0) {
+            proc_text_replaced = proc_text_replaced.replaceAll(
+                /<([A-Za-z][_0-9A-Za-z]*\s?)_Volume>/g,
+                ProcessText("Volume", "")
+            );
+        } else {
+            for (let track of Tracks) {
+                console.log(track);
+                console.log(`<${track.replace(":", "").trim()}_Volume>`);
+                track = track.replace(":", "").trim();
+                proc_text_replaced = proc_text_replaced.replace(
+                    `<${track}_Volume>`,
+                    ProcessText("Volume", `${track}`)
+                );
+            }
+        }
+
+        ProcessText(proc_text);
+        globalEditor.setCode(proc_text_replaced);
+    };
+
+    //sets the mute state when it changes and processes change
+    useEffect(() => {
+        Proc();
+    }, [MuteState]);
+
+    const ProcessText = (match, track) => {
+        // Creating variable to replace tag
+        let replace = "";
+
+        // replace mute variable when mute state is changed
+        if (MuteState && match === "Mute") {
+            replace = "_";
+        }
+
+        // updates the all volume tag with the volume state value
+        if (volumeState["AllTrackVolume"] && match === "Volume" && track === "") {
+            replace = `all(x => x.postgain(${volumeState["AllTrackVolume"]}))`;
+        }
+
+        // updates respective track volume with the volume provided by the track volume state
+        if (volumeState[track] && match === "Volume") {
+            replace = `.postgain(${volumeState[track]})`;
+        }
+
+        // updates the all low pass tag with the low pass state value
+        if (LowPassState && match === "lpf") {
+            replace = `all(x => x.lpf(${LowPassState}))`;
+        }
+
+        // updates the all medium pass tag with the medium pass state value
+        if (MediumPassState && match === "mpf") {
+            replace = `all(x => x.bpf(${MediumPassState}))`;
+        }
+
+        // updates the all high pass tag with the high pass state value
+        if (HighPassState && match === "hpf") {
+            replace = `all(x => x.hpf(${HighPassState}))`;
+        }
+
+        // updates the all room tag with the room state value
+        if (RoomState && match === "Room") {
+            replace = `all(x => x.room(${RoomState}))`;
+        }
+
+        // updates the all room low pass tag with the room low pass state value
+        if (RoomLowPassState && match === "rlp") {
+            replace = `all(x => x.room(${RoomState}).rlp(${RoomLowPassState}))`;
+        }
+
+        // updates the all room fade tag with the room fade state value
+        if (RoomFadeState && match === "Fade") {
+            replace = `all(x => x.room(${RoomState}).rlp(${RoomLowPassState}).rfade(${RoomFadeState}))`;
+        }
+
+        // updates the all room decay tag with the room decay state value
+        if (RoomDecayState && match === "Decay") {
+            replace = `all(x => x.decay(${RoomDecayState}).sustain(${RoomSustainState}))`;
+        }
+
+        // updates the all room sustain tag with the room sustain state value
+        if (RoomSustainState && match === "Decay") {
+            replace = `all(x => x.decay(${RoomDecayState}).sustain(${RoomSustainState}))`;
+        }
+
+        return replace;
+    };
+
+    // changes the volume when a volume range has been set
+    // Processes change
+    const Volume = (track, value) => {
+        setVolumeState((prevState) => ({
+            ...prevState,
+            [track]: value,
+        }));
+        Proc();
+    };
+
+    // Creates layout of webpage
+    return (
+        <div style={{ backgroundColor: "#020a4aff" }}>
+            <div className="row" style={{ maxWidth: "100vw", marginRight: "0" }}>
+                <div className="col-md-9">
+                    <h2 className="ps-3" style={{ color: "#fcef8fff" }}>
+                        Strudel Demo
+                    </h2>
+                    <label
+                        htmlFor="exampleFormControlTextarea1"
+                        className="form-label ps-3"
+                        style={{ color: "#faa255ff" }}
+                    >
+                        Text to preprocess:
+                    </label>
                 </div>
-                <div className="row">
-                    <div className="col-md-8" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
-                        <div id="editor" />
-                        <div id="output" />
-                    </div>
-                    <div className="col-md-4">
-                        <div className="form-check">
-                            <input className="form-check-input" type="radio" name="flexRadioDefault" id="flexRadioDefault1" onChange={ProcAndPlay} defaultChecked />
-                            <label className="form-check-label" htmlFor="flexRadioDefault1">
-                                p1: ON
-                            </label>
-                        </div>
-                        <div className="form-check">
-                            <input className="form-check-input" type="radio" name="flexRadioDefault" id="flexRadioDefault2" onChange={ProcAndPlay} />
-                            <label className="form-check-label" htmlFor="flexRadioDefault2">
-                                p1: HUSH
-                            </label>
-                        </div>
-                    </div>
+                <div className="col-md-3">
+                    <SaveAndLoadButtons MuteState={MuteState} setMuteState={setMuteState} />
                 </div>
             </div>
-            <canvas id="roll"></canvas>
-        </main >
-    </div >
-);
-
-
+            <main>
+                <div className="container-fluid">
+                    <div className="row">
+                        <div style={{ width: "66.3%" }}>
+                            <div className="row">
+                                <Processor
+                                    setGlobalEditor={setGlobalEditor}
+                                    rngArray={rngArray}
+                                    setRngArray={setRngArray}
+                                />
+                            </div>
+                            <div className="row ps-3 pt-2">
+                                <Strudel />
+                            </div>
+                        </div>
+                        <div
+                            style={{
+                                width: "33%",
+                                backgroundColor: "white",
+                                border: "2px solid yellow",
+                                overflowY: "auto",
+                            }}
+                        >
+                            <Navigation
+                                globalEditor={globalEditor}
+                                Proc={Proc}
+                                Tracks={Tracks}
+                                setLowPassState={setLowPassState}
+                                setHighPassState={setHighPassState}
+                                setMediumPassState={setMediumPassState}
+                                Volume={Volume}
+                                MuteState={MuteState}
+                                setMuteState={setMuteState}
+                            />
+                        </div>
+                    </div>
+                    <div className="row mt-3 pb-3">
+                        <div
+                            className="ms-3 me-2"
+                            style={{
+                                width: "64%",
+                                backgroundColor: "white",
+                                border: "2px solid yellow",
+                                marginTop: 0,
+                            }}
+                        >
+                            <Graph rngArray={rngArray} />
+                        </div>
+                        <div
+                            className="ms-1"
+                            style={{
+                                width: "33%",
+                                backgroundColor: "white",
+                                border: "2px solid yellow",
+                                overflowY: "auto",
+                            }}
+                        >
+                            <div style={{ height: "26vw" }}>
+                                <h6 className="text-center mt-2">Reverb:</h6>
+                                <Reverb
+                                    setRoomState={setRoomState}
+                                    Proc={Proc}
+                                    setRoomLowPassState={setRoomLowPassState}
+                                    setRoomFadeState={setRoomFadeState}
+                                    setRoomSustainState={setRoomSustainState}
+                                    setRoomDecayState={setRoomDecayState}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
 }

@@ -39,27 +39,27 @@ const arpeggiator2 = [
 const pattern = 0
 const bass = 0
 
-bassline:
+<Mute>bassline:
 note(pick(basslines, bass))
 .sound("supersaw")
 .postgain(2)
 .room(0.6)
 .lpf(700)
 .room(0.4)
-.postgain(pick(gain_patterns, pattern))
+.postgain(pick(gain_patterns, pattern))<bassline_Volume>
 
 
-main_arp: 
+<Mute>main_arp: 
 note(pick(arpeggiator1, "<0 1 2 3>/2"))
 .sound("supersaw")
 .lpf(300)
 .adsr("0:0:.5:.1")
 .room(0.6)
 .lpenv(3.3)
-.postgain(pick(gain_patterns, pattern))
+.postgain(pick(gain_patterns, pattern))<main_arp_Volume>
 
 
-drums:
+<Mute>drums:
 stack(
   s("tech:5")
   .postgain(6)
@@ -75,9 +75,9 @@ stack(
   s("{~ ~ rim ~ cp ~ rim cp ~!2 rim ~ cp ~ < rim ~ >!2}%8 *2")
   .bank("[KorgDDM110, OberheimDmx]").speed(1.2)
   .postgain(.25),
-)
+)<drums_Volume>
 
-drums2: 
+<Mute>drums2: 
 stack(
   s("[~ hh]*4").bank("RolandTR808").room(0.3).speed(0.75).gain(1.2),
   s("hh").struct("x*16").bank("RolandTR808")
@@ -92,9 +92,18 @@ stack(
   .hpf(1000)
   .speed(0.5)
   .rarely(jux(rev)),
-)
+)<drums2_Volume>
+
+<Volume_Control>
+<Low_Pass_Filter>
+<Medium_Pass_Filter>
+<High_Pass_Filter>
+<Room>
+<Room_Low_Pass>
+<Room_Fade>
+<Decay>
 //Remixed and reproduced from Algorave Dave's code found here: https://www.youtube.com/watch?v=ZCcpWzhekEY
 // all(x => x.gain(mouseX.range(0,1)))
-// all(x => x.log())
+all(x => x.log())
 
 // @version 1.2`;
