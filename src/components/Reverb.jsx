@@ -1,0 +1,117 @@
+function Reverb({
+    setRoomState,
+    Proc,
+    setRoomLowPassState,
+    setRoomFadeState,
+    setRoomDecayState,
+    setRoomSustainState,
+}) {
+    // Sets the value for the room
+    const Room = (value) => {
+        setRoomState(value);
+        Proc();
+    };
+
+    // Sets the value for the room low pass
+    const RoomLowPass = (value) => {
+        setRoomLowPassState(value);
+        Proc();
+    };
+
+    // Sets the value for the room fade
+    const Fade = (value) => {
+        setRoomFadeState(value);
+        Proc();
+    };
+
+    // Sets the value for the room decay
+    const Decay = (value) => {
+        setRoomDecayState(value);
+        Proc();
+    };
+
+    // Sets the value for time that the song decays for
+    const Sustain = (value) => {
+        setRoomSustainState(value);
+        Proc();
+    };
+
+    // Creates a loncation to hold the filters and their controls
+    // Creates the control and sets the value of the respective filter to value of control.
+    return (
+        <div>
+            <div>
+                <label htmlFor="Room" className="form-label">
+                    Room:
+                </label>
+                <input
+                    type="range"
+                    className="form-range"
+                    id="Room"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    onChange={(event) => Room(event.target.value)}
+                ></input>
+            </div>
+            <div>
+                <label htmlFor="Decay" className="form-label">
+                    Decay:
+                </label>
+                <input
+                    type="range"
+                    className="form-range"
+                    id="Decay"
+                    min={0}
+                    max={30}
+                    step={0.1}
+                    onChange={(event) => Decay(event.target.value)}
+                ></input>
+            </div>
+            <div>
+                <label htmlFor="Fade" className="form-label">
+                    Fade:
+                </label>
+                <input
+                    type="range"
+                    className="form-range"
+                    id="Fade"
+                    min={0}
+                    max={30}
+                    step={0.1}
+                    onChange={(event) => Fade(event.target.value)}
+                ></input>
+            </div>
+            <div>
+                <label htmlFor="RoomLowPass" className="form-label">
+                    Room Low-Pass Filter:
+                </label>
+                <input
+                    type="range"
+                    className="form-range"
+                    id="RoomLowPassFilter"
+                    min={0}
+                    max={20000}
+                    step={100}
+                    onChange={(event) => RoomLowPass(event.target.value)}
+                ></input>
+            </div>
+            <div>
+                <label htmlFor="Sustain" className="form-label">
+                    Sustain:
+                </label>
+                <input
+                    type="range"
+                    className="form-range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    id="Sustain"
+                    onChange={(event) => Sustain(event.target.value)}
+                ></input>
+            </div>
+        </div>
+    );
+}
+
+export default Reverb;
